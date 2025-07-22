@@ -1,30 +1,33 @@
 const express = require('express');
+const crypto = require('crypto');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Required to parse JSON in POST bodies
+const VERIFICATION_TOKEN = 'fbflipper-verify-token-45c70d85e3b948f54abe123d567980aa';
+const ENDPOINT_URL = 'https://fbflipper-webhook.onrender.com';
+
 app.use(express.json());
 
-// Token for verification (must match the one you put in the eBay dashboard)
-const VERIFICATION_TOKEN = 'fbflipper-verify-token-45c70d85e3b948f5a4be1234567890aa';
-
-// Verification handler — this is where eBay checks your server
+// eBay Challenge for Marketplace Deletion verification
 app.get('/', (req, res) => {
-  const token = req.query.verification_token;
-  if (token === VERIFICATION_TOKEN) {
-    res.send(token);
-  } else {
-    res.status(400).send('Invalid verification token');
+  const challengeCode = req.query.challenge_code;
+
+  if (!challengeCode) {
+    return res.status(400).send('Missing challenge_code');
   }
+
+  const rawString = challengeCode + VERIFICATION_TOKEN + ENDPOINT_URL;
+  const hash = crypto.createHash('sha256').update(rawString).digest('hex');
+
+  return res.status(200).json({ challengeResponse: hash });
 });
 
-// Handle actual POST notifications (optional for now)
+// Optional logging for actual POST notifications
 app.post('/', (req, res) => {
-  console.log('Received notification:', req.body);
+  console.log('Received POST:', req.body);
   res.status(200).send('OK');
 });
 
-// Start server
 app.listen(port, () => {
-  console.log(`Webhook listening at http://localhost:${port}`);
+  console.log(`Webhook running on http://localhost:${port}`);
 });
